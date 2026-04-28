@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Chat Exporter</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header__row">
+      <h1>Chat Exporter</h1>
+      <span id="status" class="status">Detecting…</span>
+    </div>
+    <p id="meta-title" class="title" hidden></p>
+    <p id="meta-sub" class="subtitle" hidden></p>
+  </header>
+
+  <main>
+    <section class="formats" id="formats" hidden>
+      <button class="fmt fmt--primary" data-format="md" id="default-fmt">Markdown</button>
+      <button class="fmt" data-format="txt">Text</button>
+      <button class="fmt" data-format="json">JSON</button>
+      <button class="fmt" data-format="csv">CSV</button>
+    </section>
+
+    <label class="option" id="options" hidden>
+      <input type="checkbox" id="opt-reasoning" checked>
+      <span>Include reasoning / thinking blocks</span>
+    </label>
+  </main>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
