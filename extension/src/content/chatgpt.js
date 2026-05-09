@@ -45,6 +45,7 @@
         source: 'chatgpt',
         title: getTitle(),
         url: location.href,
+        sessionId: getSessionId(),
         messages,
       });
     }
@@ -88,8 +89,15 @@
       source: 'chatgpt',
       title: getTitle(),
       url: location.href,
+      sessionId: getSessionId(),
       messages,
     });
+  }
+
+  function getSessionId() {
+    // /c/{uuid} or /g/g-xxx/c/{uuid}
+    const m = location.pathname.match(/\/c\/([^/?#]+)/);
+    return m ? m[1] : '';
   }
 
   function extractMessage(node) {
@@ -158,9 +166,9 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (msg?.type === 'EXTRACT_CONVERSATION') {
+    if (msg?.type === 'EXTRACT') {
       extractChatGPT()
-        .then(conv => sendResponse({ ok: true, conversation: conv }))
+        .then(conv => sendResponse({ ok: true, data: conv }))
         .catch(err => sendResponse({ ok: false, error: String(err?.message || err) }));
       return true; // async
     }

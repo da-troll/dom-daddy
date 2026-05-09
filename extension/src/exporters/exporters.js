@@ -224,16 +224,122 @@ function getPrintCSS(theme) {
   `;
 }
 
+// =====================================================================
+// Profile exporters (kind === 'profile') — currently LinkedIn experience.
+// =====================================================================
+
+export function exportProfileMarkdown(profile) {
+  const parts = [];
+  parts.push(`# ${profile.name || 'Profile'}\n`);
+  if (profile.headline) parts.push(`*${profile.headline}*\n`);
+  parts.push(`*Source: ${profile.source} • Exported: ${formatDate(profile.extractedAt)}*\n`);
+  if (profile.profileUrl) parts.push(`*URL: ${profile.profileUrl}*\n`);
+  parts.push('\n## Experience\n');
+
+  for (const exp of profile.experiences) {
+    parts.push(`\n### ${exp.company}`);
+    const meta = [];
+    if (exp.employmentType) meta.push(exp.employmentType);
+    if (exp.totalDurationText) meta.push(exp.totalDurationText);
+    if (meta.length) parts.push(`\n*${meta.join(' · ')}*`);
+    if (exp.location || exp.locationType) {
+      parts.push(`\n*${[exp.location, exp.locationType].filter(Boolean).join(' · ')}*`);
+    }
+    parts.push('\n');
+
+    for (const role of exp.roles) {
+      parts.push(`\n#### ${role.title}`);
+      const dates = [
+        [role.startDateText, role.endDateText].filter(Boolean).join(' – '),
+        role.durationText,
+      ].filter(Boolean).join(' · ');
+      if (dates) parts.push(`\n*${dates}*`);
+      if (role.location || role.locationType) {
+        parts.push(`\n*${[role.location, role.locationType].filter(Boolean).join(' · ')}*`);
+      }
+      if (role.description) parts.push(`\n\n${role.description}`);
+      if (role.skills?.length) {
+        const more = role.hiddenSkillCount ? ` (+${role.hiddenSkillCount} more)` : '';
+        parts.push(`\n\n**Skills:** ${role.skills.join(', ')}${more}`);
+      }
+      parts.push('\n');
+    }
+  }
+
+  const text = parts.join('').replace(/\n{3,}/g, '\n\n');
+  return {
+    filename: filename(profile, 'md'),
+    blob: new Blob([text], { type: 'text/markdown;charset=utf-8' }),
+  };
+}
+
+export function exportProfileJSON(profile) {
+  return {
+    filename: filename(profile, 'json'),
+    blob: new Blob([JSON.stringify(profile, null, 2)], { type: 'application/json;charset=utf-8' }),
+  };
+}
+
+export function exportProfileCSV(profile) {
+  // One row per role (the format people actually want for pivoting).
+  const headers = [
+    'company', 'companyUrl', 'employmentType', 'companyTotalDuration',
+    'roleTitle', 'startDate', 'endDate', 'startDateText', 'endDateText', 'durationText',
+    'location', 'locationType', 'description', 'skills', 'hiddenSkillCount',
+  ];
+  const rows = [headers];
+
+  for (const exp of profile.experiences) {
+    for (const role of exp.roles) {
+      rows.push([
+        exp.company || '',
+        exp.companyUrl || '',
+        exp.employmentType || '',
+        exp.totalDurationText || '',
+        role.title || '',
+        role.startDate || '',
+        role.endDate || '',
+        role.startDateText || '',
+        role.endDateText || '',
+        role.durationText || '',
+        role.location || exp.location || '',
+        role.locationType || exp.locationType || '',
+        role.description || '',
+        (role.skills || []).join('; '),
+        role.hiddenSkillCount || 0,
+      ]);
+    }
+  }
+
+  const csv = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  return {
+    filename: filename(profile, 'csv'),
+    blob: new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' }),
+  };
+}
+
 // --- helpers ---
 
-function filename(conv, ext) {
-  const safeTitle = (conv.title || 'conversation')
-    .replace(/[\\/:*?"<>|]+/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 80) || 'conversation';
-  const date = conv.exportedAt.slice(0, 10);
-  return `${safeTitle} - ${conv.source} - ${date}.${ext}`;
+function filename(obj, ext) {
+  // Profiles: {source}-{slug}-{YYYYMMDD}.{ext}
+  // Conversations: {source}-{YYYYMMDD}-{sessionId|titleSlug}.{ext}
+  // Date is always the export moment — no host exposes creation date in DOM.
+  if (obj.kind === 'profile') {
+    const date = (obj.extractedAt || new Date().toISOString()).slice(0, 10).replace(/-/g, '');
+    const id = obj.slug || titleSlug(obj.name) || 'profile';
+    return `${obj.source}-${id}-${date}.${ext}`;
+  }
+  const date = obj.exportedAt.slice(0, 10).replace(/-/g, '');
+  const id = obj.sessionId || titleSlug(obj.title);
+  return `${obj.source}-${date}-${id}.${ext}`;
+}
+
+function titleSlug(title) {
+  return (title || 'conversation')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60) || 'conversation';
 }
 
 function formatDate(iso) {

@@ -38,8 +38,15 @@
       source: 'gemini',
       title: getTitle(),
       url: location.href,
+      sessionId: getSessionId(),
       messages,
     });
+  }
+
+  function getSessionId() {
+    // /app/{id}
+    const m = location.pathname.match(/\/app\/([^/?#]+)/);
+    return m ? m[1] : '';
   }
 
   function extractMessage(node, role) {
@@ -96,9 +103,9 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (msg?.type === 'EXTRACT_CONVERSATION') {
+    if (msg?.type === 'EXTRACT') {
       try {
-        sendResponse({ ok: true, conversation: extractGemini() });
+        sendResponse({ ok: true, data: extractGemini() });
       } catch (err) {
         sendResponse({ ok: false, error: String(err?.message || err) });
       }

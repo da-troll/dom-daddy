@@ -46,8 +46,15 @@
       source: 'claude',
       title: getTitle(),
       url: location.href,
+      sessionId: getSessionId(),
       messages,
     });
+  }
+
+  function getSessionId() {
+    // /chat/{uuid} or /project/{pid}/chat/{cid} — we want the chat id
+    const m = location.pathname.match(/\/chat\/([^/?#]+)/);
+    return m ? m[1] : '';
   }
 
   function* ancestors(node) {
@@ -117,9 +124,9 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (msg?.type === 'EXTRACT_CONVERSATION') {
+    if (msg?.type === 'EXTRACT') {
       try {
-        sendResponse({ ok: true, conversation: extractClaude() });
+        sendResponse({ ok: true, data: extractClaude() });
       } catch (err) {
         sendResponse({ ok: false, error: String(err?.message || err) });
       }

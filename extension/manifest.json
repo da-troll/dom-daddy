@@ -1,18 +1,21 @@
 {
   "manifest_version": 3,
-  "name": "Chat Exporter",
-  "version": "0.1.0",
-  "description": "Export ChatGPT, Claude, and Gemini conversations to Markdown, JSON, CSV, TXT, or PDF.",
+  "name": "DOM Daddy",
+  "version": "0.2.0",
+  "description": "Extract structured data from sites that fight scraping. Supports ChatGPT, Claude, Gemini, Perplexity chats and LinkedIn experience pages.",
   "permissions": ["activeTab", "scripting", "storage", "downloads"],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "https://claude.ai/*",
-    "https://gemini.google.com/*"
+    "https://gemini.google.com/*",
+    "https://www.perplexity.ai/*",
+    "https://perplexity.ai/*",
+    "https://www.linkedin.com/*"
   ],
   "action": {
     "default_popup": "src/popup/popup.html",
-    "default_title": "Export this conversation",
+    "default_title": "Extract this page",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -38,6 +41,16 @@
       "matches": ["https://gemini.google.com/*"],
       "js": ["src/content/gemini.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.perplexity.ai/*", "https://perplexity.ai/*"],
+      "js": ["src/content/perplexity.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.linkedin.com/in/*"],
+      "js": ["src/content/linkedin.js"],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
@@ -47,7 +60,10 @@
         "https://chatgpt.com/*",
         "https://chat.openai.com/*",
         "https://claude.ai/*",
-        "https://gemini.google.com/*"
+        "https://gemini.google.com/*",
+        "https://www.perplexity.ai/*",
+        "https://perplexity.ai/*",
+        "https://www.linkedin.com/*"
       ]
     }
   ],

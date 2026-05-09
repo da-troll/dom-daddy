@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Chat Exporter</title>
+  <title>DOM Daddy</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <header class="header">
     <div class="header__row">
-      <h1>Chat Exporter</h1>
+      <h1>DOM Daddy</h1>
       <span id="status" class="status">Detecting…</span>
     </div>
     <p id="meta-title" class="title" hidden></p>
@@ -16,6 +16,9 @@
   </header>
 
   <main>
+    <p id="hint" class="hint" hidden></p>
+    <button id="hint-action" class="hint-action" hidden>Take me there</button>
+
     <section class="formats" id="formats" hidden>
       <button class="fmt fmt--primary" data-format="md" id="default-fmt">Markdown</button>
       <button class="fmt" data-format="txt">Text</button>

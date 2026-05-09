@@ -1,32 +1,47 @@
-// Shared schema for normalized conversation messages.
-// All extractors must produce objects matching this shape.
+// Shared schemas. Every extractor returns one of these; popup branches on `kind`.
 //
 // Conversation = {
-//   source: 'chatgpt' | 'claude' | 'gemini',
-//   title: string,
-//   url: string,
-//   exportedAt: ISO8601 string,
-//   messages: Message[]
+//   kind: 'conversation',
+//   source: 'chatgpt' | 'claude' | 'gemini' | 'perplexity',
+//   title, url, sessionId?, exportedAt, messages: Message[]
 // }
 //
 // Message = {
-//   id: string,                      // stable per-message id from DOM if available
-//   role: 'user' | 'assistant' | 'system',
-//   content: string,                 // Markdown-rendered text
-//   html: string,                    // raw HTML snapshot (for PDF rendering)
-//   reasoning?: string,              // Markdown of "thinking" / extended reasoning blocks
-//   attachments?: Array<{ name: string, type: string, url?: string }>,
-//   timestamp?: string               // ISO8601 if extractable, else undefined
+//   id, role: 'user'|'assistant'|'system', content, html,
+//   reasoning?, attachments?, timestamp?
+// }
+//
+// Profile = {
+//   kind: 'profile',
+//   source: 'linkedin',
+//   profileUrl, slug, name, headline?,
+//   experiences: Experience[],
+//   extractedAt
+// }
+//
+// Experience = {
+//   company, companyUrl?, companyId?, logoUrl?,
+//   employmentType?, totalDurationText?,
+//   location?, locationType?,                 // company-level (optional; can also live on a Role)
+//   roles: Role[]
+// }
+//
+// Role = {
+//   title, startDateText?, endDateText?, startDate?, endDate?,
+//   durationText?, location?, locationType?,
+//   description?, skills: string[], hiddenSkillCount: number
 // }
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
-export function makeConversation({ source, title, url, messages }) {
+export function makeConversation({ source, title, url, sessionId, messages }) {
   return {
     schemaVersion: SCHEMA_VERSION,
+    kind: 'conversation',
     source,
     title: title || 'Untitled conversation',
     url: url || (typeof location !== 'undefined' ? location.href : ''),
+    ...(sessionId ? { sessionId } : {}),
     exportedAt: new Date().toISOString(),
     messages: messages || [],
   };
@@ -44,8 +59,21 @@ export function makeMessage({ id, role, content, html, reasoning, attachments, t
   };
 }
 
+export function makeProfile({ source, profileUrl, slug, name, headline, experiences }) {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    kind: 'profile',
+    source,
+    profileUrl: profileUrl || (typeof location !== 'undefined' ? location.href : ''),
+    slug: slug || '',
+    name: name || '',
+    ...(headline ? { headline } : {}),
+    experiences: experiences || [],
+    extractedAt: new Date().toISOString(),
+  };
+}
+
 function cryptoRandomId() {
-  // Short, sortable, unique enough for export purposes.
   const ts = Date.now().toString(36);
   const rand = Math.random().toString(36).slice(2, 8);
   return `${ts}-${rand}`;

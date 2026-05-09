@@ -3,19 +3,32 @@ import {
   exportText,
   exportJSON,
   exportCSV,
+  exportProfileMarkdown,
+  exportProfileJSON,
+  exportProfileCSV,
 } from '../exporters/exporters.js';
 
-const SUPPORTED_HOSTS = {
-  'chatgpt.com': 'chatgpt',
-  'chat.openai.com': 'chatgpt',
-  'claude.ai': 'claude',
-  'gemini.google.com': 'gemini',
-};
-
-const CONTENT_SCRIPTS = {
-  chatgpt: 'src/content/chatgpt.js',
-  claude: 'src/content/claude.js',
-  gemini: 'src/content/gemini.js',
+// Site registry: hostname → { source, kind, content script path, optional pageReady check }.
+// pageReady gates extraction so we can show actionable hints (e.g. "open the
+// experience details page first" for LinkedIn) instead of a generic error.
+const SITES = {
+  'chatgpt.com':         { source: 'chatgpt',    kind: 'conversation', script: 'src/content/chatgpt.js' },
+  'chat.openai.com':     { source: 'chatgpt',    kind: 'conversation', script: 'src/content/chatgpt.js' },
+  'claude.ai':           { source: 'claude',     kind: 'conversation', script: 'src/content/claude.js' },
+  'gemini.google.com':   { source: 'gemini',     kind: 'conversation', script: 'src/content/gemini.js' },
+  'www.perplexity.ai':   { source: 'perplexity', kind: 'conversation', script: 'src/content/perplexity.js' },
+  'perplexity.ai':       { source: 'perplexity', kind: 'conversation', script: 'src/content/perplexity.js' },
+  'www.linkedin.com':    {
+    source: 'linkedin',
+    kind: 'profile',
+    script: 'src/content/linkedin.js',
+    pageReady: (url) => /^\/in\/[^/]+\/details\/experience\/?$/.test(new URL(url).pathname),
+    pageHint: 'Open the Experience details page (Profile → Show all experience).',
+    pageHintAction: (url) => {
+      const m = new URL(url).pathname.match(/^\/in\/([^/]+)/);
+      return m ? `https://www.linkedin.com/in/${m[1]}/details/experience/` : null;
+    },
+  },
 };
 
 const els = {
@@ -26,9 +39,13 @@ const els = {
   formats: document.getElementById('formats'),
   optReasoning: document.getElementById('opt-reasoning'),
   defaultFmt: document.getElementById('default-fmt'),
+  fmtTxt: document.querySelector('button.fmt[data-format="txt"]'),
+  hint: document.getElementById('hint'),
+  hintAction: document.getElementById('hint-action'),
 };
 
-let cachedConv = null;
+let cachedData = null;
+let cachedSite = null;
 let cachedTab = null;
 
 init();
@@ -45,106 +62,193 @@ async function init() {
   try { host = new URL(tab.url).hostname; }
   catch { host = ''; }
 
-  const source = SUPPORTED_HOSTS[host];
-  if (!source) {
-    setStatus('Open ChatGPT, Claude, or Gemini to export.', 'ok');
+  const site = SITES[host];
+  if (!site) {
+    setStatus('Open a supported site (ChatGPT, Claude, Gemini, Perplexity, LinkedIn).', 'ok');
+    return;
+  }
+  cachedSite = site;
+
+  if (site.pageReady && !site.pageReady(tab.url)) {
+    setStatus('Wrong page', 'error');
+    showHint(site.pageHint, site.pageHintAction?.(tab.url));
     return;
   }
 
-  setStatus('Reading conversation…');
+  setStatus(site.kind === 'profile' ? 'Reading profile…' : 'Reading conversation…');
 
   try {
-    const conv = await requestExtraction(tab.id, source);
-    if (!conv || !conv.messages?.length) {
-      setStatus('No messages found on this page.', 'error');
+    const data = await requestExtraction(tab.id, site);
+    if (!isUseful(data, site.kind)) {
+      setStatus('Nothing to export on this page.', 'error');
       return;
     }
-    cachedConv = conv;
-    populateMeta(conv);
-    els.options.hidden = false;
+    cachedData = data;
+    populateMeta(data, site);
+    configureUI(site);
     els.formats.hidden = false;
     setStatus('Ready', 'ok');
-    // Auto-focus default format so Enter exports immediately.
     els.defaultFmt?.focus();
   } catch (err) {
-    setStatus('Could not read conversation. Reload the page and try again.', 'error');
+    setStatus('Could not read this page. Reload and try again.', 'error');
     console.error(err);
   }
 
   els.formats.addEventListener('click', onFormatClick);
 }
 
-function populateMeta(conv) {
-  els.metaTitle.textContent = conv.title;
-  els.metaTitle.title = conv.title;
+function isUseful(data, kind) {
+  if (!data) return false;
+  if (kind === 'conversation') return !!data.messages?.length;
+  if (kind === 'profile') return !!data.experiences?.length;
+  return false;
+}
+
+function populateMeta(data, site) {
+  if (site.kind === 'conversation') {
+    els.metaTitle.textContent = data.title;
+    els.metaTitle.title = data.title;
+    const n = data.messages.length;
+    els.metaSub.textContent = `${n} message${n === 1 ? '' : 's'} · ${data.source}`;
+  } else {
+    els.metaTitle.textContent = data.name || 'Profile';
+    els.metaTitle.title = data.name || '';
+    const companies = data.experiences.length;
+    const roles = data.experiences.reduce((s, e) => s + (e.roles?.length || 0), 0);
+    els.metaSub.textContent = `${companies} compan${companies === 1 ? 'y' : 'ies'} · ${roles} role${roles === 1 ? '' : 's'} · ${data.source}`;
+  }
   els.metaTitle.hidden = false;
-  const n = conv.messages.length;
-  els.metaSub.textContent = `${n} message${n === 1 ? '' : 's'} · ${conv.source}`;
   els.metaSub.hidden = false;
+}
+
+function configureUI(site) {
+  if (site.kind === 'profile') {
+    // No "reasoning" toggle and no Text format for profiles.
+    els.options.hidden = true;
+    if (els.fmtTxt) els.fmtTxt.hidden = true;
+  } else {
+    els.options.hidden = false;
+    if (els.fmtTxt) els.fmtTxt.hidden = false;
+  }
+}
+
+function showHint(text, actionUrl) {
+  if (!els.hint) return;
+  els.hint.textContent = text || '';
+  els.hint.hidden = !text;
+  if (els.hintAction) {
+    if (actionUrl) {
+      els.hintAction.hidden = false;
+      els.hintAction.onclick = () => chrome.tabs.update(cachedTab.id, { url: actionUrl });
+    } else {
+      els.hintAction.hidden = true;
+    }
+  }
 }
 
 async function onFormatClick(e) {
   const btn = e.target.closest('button.fmt');
-  if (!btn || !cachedConv) return;
+  if (!btn || !cachedData || !cachedSite) return;
 
   const format = btn.dataset.format;
-  const opts = {
-    includeReasoning: els.optReasoning.checked,
-  };
-
-  const source = SUPPORTED_HOSTS[new URL(cachedTab.url).hostname];
 
   // Re-extract on each export so users get the live state, not a stale snapshot.
   try {
-    const fresh = await requestExtraction(cachedTab.id, source);
-    if (fresh?.messages?.length) cachedConv = fresh;
+    const fresh = await requestExtraction(cachedTab.id, cachedSite);
+    if (isUseful(fresh, cachedSite.kind)) cachedData = fresh;
   } catch { /* fall through with cached version */ }
 
-  let result;
-  switch (format) {
-    case 'md':   result = exportMarkdown(cachedConv, opts); break;
-    case 'txt':  result = exportText(cachedConv); break;
-    case 'json': result = exportJSON(cachedConv); break;
-    case 'csv':  result = exportCSV(cachedConv); break;
-    default: return;
-  }
+  const result = runExport(cachedData, cachedSite.kind, format);
+  if (!result) return;
 
-  await downloadBlob(result.filename, result.blob);
-  setStatus(`Saved ${result.filename}`, 'ok');
+  const outcome = await downloadBlob(result.filename, result.blob);
+  if (outcome.saved) {
+    setStatus(`Saved ${outcome.filename || result.filename}`, 'ok');
+  } else if (outcome.canceled) {
+    setStatus('Canceled', 'ok');
+  } else {
+    setStatus('Download failed', 'error');
+  }
+}
+
+function runExport(data, kind, format) {
+  if (kind === 'conversation') {
+    const opts = { includeReasoning: els.optReasoning?.checked };
+    switch (format) {
+      case 'md':   return exportMarkdown(data, opts);
+      case 'txt':  return exportText(data);
+      case 'json': return exportJSON(data);
+      case 'csv':  return exportCSV(data);
+    }
+  } else if (kind === 'profile') {
+    switch (format) {
+      case 'md':   return exportProfileMarkdown(data);
+      case 'json': return exportProfileJSON(data);
+      case 'csv':  return exportProfileCSV(data);
+    }
+  }
+  return null;
 }
 
 async function downloadBlob(filename, blob) {
-  // Convert to data URL — service workers can't access createObjectURL on content blobs reliably,
-  // but in the popup we can. We use chrome.downloads for a proper save dialog.
   const url = URL.createObjectURL(blob);
   try {
-    await chrome.downloads.download({ url, filename, saveAs: true });
+    const downloadId = await chrome.downloads.download({ url, filename, saveAs: true });
+    if (typeof downloadId !== 'number') {
+      return { saved: false, canceled: true };
+    }
+    return await waitForDownload(downloadId);
+  } catch (err) {
+    const msg = String(err?.message || err).toLowerCase();
+    if (msg.includes('cancel')) return { saved: false, canceled: true };
+    console.error(err);
+    return { saved: false, canceled: false };
   } finally {
-    // Revoke after a delay so the download has time to start.
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 }
 
-async function requestExtraction(tabId, source) {
+function waitForDownload(downloadId) {
+  return new Promise(resolve => {
+    const onChanged = (delta) => {
+      if (delta.id !== downloadId) return;
+      if (delta.state?.current === 'complete') {
+        chrome.downloads.onChanged.removeListener(onChanged);
+        chrome.downloads.search({ id: downloadId }, (items) => {
+          const final = items?.[0]?.filename || '';
+          const base = final.split(/[/\\]/).pop() || '';
+          resolve({ saved: true, filename: base });
+        });
+      } else if (delta.state?.current === 'interrupted') {
+        chrome.downloads.onChanged.removeListener(onChanged);
+        const reason = delta.error?.current || '';
+        const canceled = /USER_CANCELED|CANCELED/i.test(reason);
+        resolve({ saved: false, canceled });
+      }
+    };
+    chrome.downloads.onChanged.addListener(onChanged);
+  });
+}
+
+async function requestExtraction(tabId, site) {
   try {
     return await sendExtractMessage(tabId);
   } catch (err) {
-    // Most likely cause: content script wasn't injected (extension installed
-    // after the tab was already open). Inject programmatically and retry once.
-    const file = CONTENT_SCRIPTS[source];
-    if (!file) throw err;
-    await chrome.scripting.executeScript({ target: { tabId }, files: [file] });
+    // Likely the content script wasn't injected yet (extension installed
+    // after the tab was already open). Inject programmatically and retry.
+    if (!site?.script) throw err;
+    await chrome.scripting.executeScript({ target: { tabId }, files: [site.script] });
     return await sendExtractMessage(tabId);
   }
 }
 
 function sendExtractMessage(tabId) {
   return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_CONVERSATION' }, (resp) => {
+    chrome.tabs.sendMessage(tabId, { type: 'EXTRACT' }, (resp) => {
       const lastErr = chrome.runtime.lastError;
       if (lastErr) return reject(new Error(lastErr.message));
       if (!resp?.ok) return reject(new Error(resp?.error || 'extraction failed'));
-      resolve(resp.conversation);
+      resolve(resp.data);
     });
   });
 }
