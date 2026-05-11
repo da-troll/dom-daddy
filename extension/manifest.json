@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DOM Daddy",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Extract structured data from sites that fight scraping. Supports ChatGPT, Claude, Gemini, Perplexity chats and LinkedIn experience pages.",
   "permissions": ["activeTab", "scripting", "storage", "downloads"],
   "host_permissions": [
@@ -18,8 +18,10 @@
     "default_title": "Extract this page",
     "default_icon": {
       "16": "icons/icon16.png",
+      "24": "icons/icon24.png",
       "32": "icons/icon32.png",
       "48": "icons/icon48.png",
+      "64": "icons/icon64.png",
       "128": "icons/icon128.png"
     }
   },
@@ -70,7 +72,11 @@
   ],
   "icons": {
     "16": "icons/icon16.png",
+    "24": "icons/icon24.png",
+    "32": "icons/icon32.png",
     "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "64": "icons/icon64.png",
+    "128": "icons/icon128.png",
+    "256": "icons/icon256.png"
   }
 }
