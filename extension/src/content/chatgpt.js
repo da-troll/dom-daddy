@@ -52,38 +52,59 @@
 
     const savedScroll = window.scrollY;
     const byId = new Map();        // data-message-id -> message
-    const byIndex = new Map();     // anchor index (fallback for missing ids)
-    const order = [];              // order of insertion (anchor index)
+    const byIndex = new Map();     // synthetic index -> message (nodes with no id)
+    const order = [];              // insertion order { kind: 'id'|'idx', key }
+    let syntheticIdx = 0;
+
+    function collect(node) {
+      const msg = extractMessage(node);
+      if (!msg) return;
+      const id = node.getAttribute(SELECTORS.messageIdAttr);
+      if (id) {
+        if (byId.has(id)) return;
+        byId.set(id, msg);
+        order.push({ kind: 'id', key: id });
+      } else {
+        const key = `idx-${syntheticIdx++}`;
+        byIndex.set(key, msg);
+        order.push({ kind: 'idx', key });
+      }
+    }
 
     for (let i = 0; i < anchors.length; i++) {
       const anchor = anchors[i];
       anchor.scrollIntoView({ block: 'center', behavior: 'auto' });
-      // Give React a tick to mount the content for this turn.
-      const node = await waitFor(
+      // Wait for at least one message node to mount, then capture EVERY message
+      // node in this turn — ChatGPT sometimes splits one turn into multiple
+      // [data-message-author-role] nodes (preamble + reasoning + final answer).
+      // querySelector (singular) was silently dropping all but the first.
+      await waitFor(
         () => anchor.querySelector(SELECTORS.messageNode)
               || document.querySelector(SELECTORS.messageNode + '[data-turn-index="' + i + '"]'),
       );
-      if (!node) continue;
-
-      const msg = extractMessage(node);
-      if (!msg) continue;
-
-      const id = node.getAttribute(SELECTORS.messageIdAttr);
-      if (id) {
-        if (!byId.has(id)) {
-          byId.set(id, msg);
-          order.push({ kind: 'id', key: id });
-        }
+      const nodes = anchor.querySelectorAll(SELECTORS.messageNode);
+      if (nodes.length) {
+        nodes.forEach(collect);
       } else {
-        byIndex.set(i, msg);
-        order.push({ kind: 'idx', key: i });
+        // Fallback: turn-indexed lookup outside the anchor.
+        const fallback = document.querySelector(SELECTORS.messageNode + '[data-turn-index="' + i + '"]');
+        if (fallback) collect(fallback);
       }
     }
+
+    // Brute-force safety net: any message node we never reached (split shapes
+    // we haven't seen, content outside [data-turn], etc.) gets appended in
+    // DOM order so the export is honest even when our anchor walk misses.
+    document.querySelectorAll(SELECTORS.messageNode).forEach(node => {
+      const id = node.getAttribute(SELECTORS.messageIdAttr);
+      if (id && byId.has(id)) return;
+      collect(node);
+    });
 
     // Restore the user's scroll position.
     window.scrollTo({ top: savedScroll, behavior: 'auto' });
 
-    const messages = order.map(o => o.kind === 'id' ? byId.get(o.key) : byIndex.get(o.key));
+    const messages = order.map(o => o.kind === 'id' ? byId.get(o.key) : byIndex.get(o.key)).filter(Boolean);
 
     return makeConversation({
       source: 'chatgpt',
