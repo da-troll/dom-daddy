@@ -96,6 +96,12 @@ Known offender: **Suno Tracks Exporter**. Disable it (or any other download-mana
 
 Add an `exportXxx(data, opts)` function in `exporters.js` returning `{ filename, blob }`, then wire a button in `popup.html` and a case in `runExport()` in `popup.js`.
 
+## License
+
+Code is licensed under the **Apache License 2.0** (see [`LICENSE`](LICENSE)) — you can use, modify, and redistribute it commercially, subject to the usual Apache obligations.
+
+The name **DOM Daddy**, the mascot, and all files under `extension/icons/` plus `favicon.ico` are © Trollefsen Labs and are **not** covered by the code license. Forks must rename and re-skin before publishing to the Chrome Web Store or any other distribution channel. Full carve-out in [`NOTICE`](NOTICE).
+
 ## Why this exists
 
 A from-scratch alternative to closed-source export extensions, with the goal of (1) keeping all extracted data inside the browser and (2) being trivially auditable — no minified bundles, no server, no analytics.
