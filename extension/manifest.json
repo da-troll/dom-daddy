@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "DOM Daddy",
-  "version": "0.2.2",
-  "description": "Extract structured data from sites that fight scraping. Supports ChatGPT, Claude, Gemini, Perplexity chats and LinkedIn experience pages.",
+  "version": "0.3.0",
+  "description": "Extract structured data from sites that fight scraping. Supports ChatGPT, Claude, Gemini, AI Studio, Perplexity chats and LinkedIn experience pages.",
   "permissions": ["activeTab", "scripting", "storage", "downloads"],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
     "https://claude.ai/*",
     "https://gemini.google.com/*",
+    "https://aistudio.google.com/*",
     "https://www.perplexity.ai/*",
     "https://perplexity.ai/*",
     "https://www.linkedin.com/*"
@@ -46,6 +47,11 @@
       "run_at": "document_idle"
     },
     {
+      "matches": ["https://aistudio.google.com/*"],
+      "js": ["src/content/aistudio.js"],
+      "run_at": "document_idle"
+    },
+    {
       "matches": ["https://www.perplexity.ai/*", "https://perplexity.ai/*"],
       "js": ["src/content/perplexity.js"],
       "run_at": "document_idle"
@@ -64,6 +70,7 @@
         "https://chat.openai.com/*",
         "https://claude.ai/*",
         "https://gemini.google.com/*",
+        "https://aistudio.google.com/*",
         "https://www.perplexity.ai/*",
         "https://perplexity.ai/*",
         "https://www.linkedin.com/*"

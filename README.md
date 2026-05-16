@@ -2,7 +2,7 @@
 
 A Manifest V3 Chrome extension that extracts structured data from sites that fight scraping. Currently:
 
-- **ChatGPT, Claude, Gemini, Perplexity** chats → Markdown / Text / JSON / CSV
+- **ChatGPT, Claude, Gemini, AI Studio, Perplexity** chats → Markdown / Text / JSON / CSV
 - **LinkedIn** experience pages (`/in/{you}/details/experience/`) → Markdown / JSON / CSV (one row per role)
 
 Pure client-side. No server, no build step, no analytics, no dependencies.
@@ -27,7 +27,7 @@ extension/
   src/
     background/            Thin service worker (lifecycle hooks only)
     content/               One extractor per supported host
-      chatgpt.js  claude.js  gemini.js  perplexity.js
+      chatgpt.js  claude.js  gemini.js  aistudio.js  perplexity.js
       linkedin.js          /in/{slug}/details/experience/
     lib/
       schema.js            Conversation + Profile types (kind discriminator)
@@ -62,6 +62,7 @@ MV3 doesn't allow content scripts to be declared as ES modules. To still share `
   - ChatGPT: `[data-message-author-role]`, `[data-message-id]`
   - Claude: `[data-testid="user-message"]`, `.font-claude-message`
   - Gemini: `user-query`, `model-response` (Angular component tags)
+  - AI Studio: `ms-chat-turn` (role from `data-turn-role`); content in `ms-cmark-node`
   - Perplexity: `[class~="group/query"]` for queries, `.prose` for answers
   - LinkedIn: `[componentkey^="entity-collection-item-"]` per company entry; we parse `innerText` line-by-line and ignore hashed CSS classes entirely.
 - **Virtualized / collapsed UIs lose data.** Chat sites unmount off-screen messages; "Show thinking" details and LinkedIn's `…see more` may collapse content. Scroll/expand before extracting.

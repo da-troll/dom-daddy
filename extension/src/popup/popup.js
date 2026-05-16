@@ -16,6 +16,7 @@ const SITES = {
   'chat.openai.com':     { source: 'chatgpt',    kind: 'conversation', script: 'src/content/chatgpt.js' },
   'claude.ai':           { source: 'claude',     kind: 'conversation', script: 'src/content/claude.js' },
   'gemini.google.com':   { source: 'gemini',     kind: 'conversation', script: 'src/content/gemini.js' },
+  'aistudio.google.com': { source: 'aistudio',   kind: 'conversation', script: 'src/content/aistudio.js' },
   'www.perplexity.ai':   { source: 'perplexity', kind: 'conversation', script: 'src/content/perplexity.js' },
   'perplexity.ai':       { source: 'perplexity', kind: 'conversation', script: 'src/content/perplexity.js' },
   'www.linkedin.com':    {
@@ -64,7 +65,7 @@ async function init() {
 
   const site = SITES[host];
   if (!site) {
-    setStatus('Open a supported site (ChatGPT, Claude, Gemini, Perplexity, LinkedIn).', 'ok');
+    setStatus('Open a supported site (ChatGPT, Claude, Gemini, AI Studio, Perplexity, LinkedIn).', 'ok');
     return;
   }
   cachedSite = site;

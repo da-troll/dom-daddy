@@ -7,3 +7,4 @@ dist/
 *.log
 CLAUDE.md
 .DS_Store
+extension/icons/logo.png
